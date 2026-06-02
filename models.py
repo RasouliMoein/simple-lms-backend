@@ -108,7 +108,7 @@ class Exam(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
-    lesson_id = db.Column(db.Integer, db.ForeignKey('lessons.id'), nullable=True) # Optional association
+    lesson_id = db.Column(db.Integer, db.ForeignKey('lessons.id'), nullable=False) # Required association
     professor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

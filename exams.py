@@ -80,7 +80,7 @@ def create_exam():
         required: true
         schema:
           type: object
-          required: [title]
+          required: [title, lesson_id]
           properties:
             title:
               type: string
@@ -98,11 +98,14 @@ def create_exam():
     if not data or not data.get('title'):
         return jsonify({'error': 'Title is required'}), 400
         
+    if 'lesson_id' not in data or data.get('lesson_id') is None:
+        return jsonify({'error': 'lesson_id is required and cannot be null'}), 400
+        
     user_id = get_jwt().get('user_id')
     
     exam = Exam(
         title=data['title'],
-        lesson_id=data.get('lesson_id'),
+        lesson_id=data['lesson_id'],
         professor_id=user_id
     )
     
@@ -141,6 +144,8 @@ def update_exam(exam_id):
     responses:
       200:
         description: Exam updated successfully
+      400:
+        description: Bad request
       404:
         description: Exam not found
     """
@@ -149,13 +154,16 @@ def update_exam(exam_id):
     
     if data:
         if 'title' in data:
+            if not data['title']:
+                return jsonify({'error': 'Title cannot be empty'}), 400
             exam.title = data['title']
         if 'lesson_id' in data:
+            if data['lesson_id'] is None:
+                return jsonify({'error': 'lesson_id cannot be null'}), 400
             exam.lesson_id = data['lesson_id']
             
         db.session.commit()
         return jsonify({'message': 'Exam updated successfully', 'exam': exam.to_dict(include_answers=True)}), 200
-        
     return jsonify({'error': 'No data provided to update'}), 400
 
 
