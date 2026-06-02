@@ -477,3 +477,41 @@ def submit_exam(exam_id):
         'correct_count': correct_count,
         'breakdown': breakdown
     }), 200
+
+@exams_bp.route('/submissions', methods=['GET'])
+@jwt_required()
+def get_submissions():
+    """
+    Get exam submissions/history for student or system
+    ---
+    tags:
+      - Exams
+    security: [{Bearer: []}]
+    parameters:
+      - name: student_id
+        in: query
+        type: integer
+        required: false
+        description: Filter history by a specific student ID (accessible by Professor or Admin roles only).
+    responses:
+      200:
+        description: List of submissions successfully retrieved.
+      403:
+        description: Insufficient permissions.
+    """
+    claims = get_jwt()
+    role = claims.get('role')
+    user_id = claims.get('user_id')
+    
+    if role == 'student':
+        # Students are forced to only see their own exam scores/submissions
+        submissions = ExamSubmission.query.filter_by(student_id=user_id).all()
+    else:
+        # Admins & Professors can query any student's score history, or see all if student_id parameter is empty
+        filter_student_id = request.args.get('student_id', type=int)
+        if filter_student_id:
+            submissions = ExamSubmission.query.filter_by(student_id=filter_student_id).all()
+        else:
+            submissions = ExamSubmission.query.all()
+            
+    return jsonify([sub.to_dict() for sub in submissions]), 200

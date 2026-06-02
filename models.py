@@ -168,6 +168,7 @@ class ExamSubmission(db.Model):
         return {
             'id': self.id,
             'exam_id': self.exam_id,
+            'exam_title': self.exam.title if self.exam else "Unknown Exam",
             'student_id': self.student_id,
             'score': self.score,
             'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None
