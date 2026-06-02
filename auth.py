@@ -93,8 +93,12 @@ def login():
       401: {description: Invalid credentials}
     """
     try:
-        data = request.get_json()
-        
+        # Try JSON first, fall back to Form data (for Swagger OAuth2 login)
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
+            
         # Validate input
         if not data or not data.get('username') or not data.get('password'):
             return jsonify({'error': 'Missing username or password'}), 400
@@ -121,6 +125,7 @@ def login():
         return jsonify({
             'message': 'Login successful',
             'access_token': access_token,
+            'token_type': 'bearer',
             'refresh_token': refresh_token,
             'user': user.to_dict()
         }), 200

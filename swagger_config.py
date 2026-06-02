@@ -26,10 +26,10 @@ swagger_template = {
     },
     'securityDefinitions': {
         'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'Standard JWT authorization header. Example: "Bearer eyJhbGciOi..."'
+            'type': 'oauth2',
+            'flow': 'password',
+            'tokenUrl': '/api/auth/login',
+            'description': 'Automatic login: click Authorize, enter your username and password, then click Login to authenticate automatically.'
         }
     },
     'tags': [
