@@ -60,7 +60,10 @@ swagger_template = {
         {
             'name': 'Exams',
             'description': 'Quiz and test building, question creation, and interactive student submissions & grading.'
+        },
+        {
+            'name': 'Progress',
+            'description': 'Endpoints for tracking student learning progress and marking lesson sections as completed.'
         }
     ]
 }
-

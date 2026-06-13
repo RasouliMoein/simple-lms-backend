@@ -1,7 +1,7 @@
 import os
 import uuid
 from flask import Blueprint, request, jsonify, current_app, send_from_directory
-from auth import role_required
+from app.routes.auth import role_required
 from werkzeug.utils import secure_filename
 from PIL import Image
 
@@ -62,9 +62,6 @@ def upload_file():
         # Open the image, convert to standard format (RGB) if necessary, and save as WebP
         try:
             img = Image.open(file)
-            # Convert RGBA to RGB if saving to format that doesn't support alpha,
-            # though WebP DOES support alpha. We just convert safely.
-            # We change extension to .webp
             new_unique_filename = f"{uuid.uuid4().hex}.webp"
             file_path = os.path.join(upload_folder, new_unique_filename)
             

@@ -1,5 +1,5 @@
 from app import create_app
-from models import db, User, Student, Professor, Lesson, Section, Exam, Question, ExamSubmission
+from app.models import db, User, Student, Professor, Lesson, Section, Exam, Question, ExamSubmission, SectionProgress
 
 def seed_database():
     app = create_app()
@@ -396,6 +396,19 @@ with open("test.txt", "r", encoding="utf-8") as file:
         db.session.add(q10)
         db.session.commit()
         print("  - Added 3 detailed questions for Exam 3")
+        
+        # ----------------------------------------------------
+        # Seed progress data for default student
+        # ----------------------------------------------------
+        # Delete any existing progress for clean seeding
+        db.session.query(SectionProgress).delete()
+        
+        progress1 = SectionProgress(student_id=student.id, section_id=sec1.id)
+        progress2 = SectionProgress(student_id=student.id, section_id=sec3.id)
+        db.session.add(progress1)
+        db.session.add(progress2)
+        db.session.commit()
+        print("  - Seeded initial student section progress")
         
         print("\nDatabase successfully populated with highly detailed, premium mock data!")
 

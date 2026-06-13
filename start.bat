@@ -31,7 +31,7 @@ echo [4/4] Launching Flask Server...
 echo Server running at http://localhost:5000/docs/
 echo Press Ctrl+C to stop the server.
 echo.
-python app.py
+python run.py
 
 :: If the server exits for any reason, pause so the user can read any console error messages
 echo.

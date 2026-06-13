@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
-from auth import role_required
-from models import db, Lesson, Section
+from app.routes.auth import role_required
+from app.models import db, Lesson, Section, SectionProgress
 
 lessons_bp = Blueprint('lessons', __name__)
 
@@ -333,3 +333,55 @@ def get_section(lesson_id, section_id):
     """
     section = Section.query.filter_by(id=section_id, lesson_id=lesson_id).first_or_404()
     return jsonify(section.to_dict()), 200
+
+@lessons_bp.route('/<int:lesson_id>/sections', methods=['GET'])
+@jwt_required(optional=True)
+def get_lesson_sections(lesson_id):
+    """
+    Get all sections of a lesson (with optional completion progress)
+    ---
+    tags:
+      - Lessons
+    parameters:
+      - name: lesson_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the lesson
+    responses:
+      200:
+        description: List of sections in the lesson
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer, example: 1 }
+              lesson_id: { type: integer, example: 1 }
+              title: { type: string, example: "۱. متغیرها و انواع داده‌ها در پایتون" }
+              body_content: { type: string, example: "<p>محتوا</p>" }
+              order_index: { type: integer, example: 0 }
+              completed: { type: boolean, example: true }
+      404:
+        description: Lesson not found
+    """
+    lesson = Lesson.query.get_or_404(lesson_id)
+    
+    # Sort sections by order_index
+    sorted_sections = sorted(lesson.sections, key=lambda x: x.order_index)
+    
+    # Check if student is authenticated and has progress
+    claims = get_jwt()
+    completed_section_ids = set()
+    if claims and claims.get('user_id') and claims.get('role') == 'student':
+        user_id = claims.get('user_id')
+        progress_records = SectionProgress.query.filter_by(student_id=user_id).all()
+        completed_section_ids = {p.section_id for p in progress_records}
+        
+    sections_list = []
+    for section in sorted_sections:
+        s_dict = section.to_dict()
+        s_dict['completed'] = section.id in completed_section_ids
+        sections_list.append(s_dict)
+        
+    return jsonify(sections_list), 200

@@ -174,4 +174,26 @@ class ExamSubmission(db.Model):
             'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None
         }
 
-
+class SectionProgress(db.Model):
+    __tablename__ = 'section_progress'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), nullable=False)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    student = db.relationship('User', backref=db.backref('completed_sections', lazy=True))
+    section = db.relationship('Section', backref=db.backref('progress_records', lazy=True, cascade='all, delete-orphan'))
+    
+    __table_args__ = (
+        db.UniqueConstraint('student_id', 'section_id', name='_student_section_uc'),
+    )
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'student_id': self.student_id,
+            'section_id': self.section_id,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }

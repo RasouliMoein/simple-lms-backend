@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
-from auth import role_required
-from models import db, Exam, Question, ExamSubmission
+from app.routes.auth import role_required
+from app.models import db, Exam, Question, ExamSubmission
 
 exams_bp = Blueprint('exams', __name__)
 

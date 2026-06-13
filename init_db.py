@@ -1,5 +1,5 @@
 from app import create_app
-from models import db, Admin, Professor, Student
+from app.models import db, Admin, Professor, Student
 
 def init_database():
     app = create_app()
