@@ -168,6 +168,131 @@ def refresh():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@auth_bp.route('/me', methods=['GET'])
+@jwt_required()
+def get_profile():
+    """
+    Get current user profile
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Current authenticated user's profile data
+        schema:
+          type: object
+          properties:
+            user:
+              type: object
+              properties:
+                id: { type: integer, example: 1 }
+                username: { type: string, example: "johndoe" }
+                role: { type: string, example: "student" }
+                first_name: { type: string, example: "John" }
+                last_name: { type: string, example: "Doe" }
+                created_at: { type: string, example: "2024-01-01T00:00:00" }
+                student_id: { type: string, example: "STU2024001" }
+      401:
+        description: Missing or invalid JWT access token
+      404:
+        description: Authenticated user not found
+    """
+    try:
+        current_username = get_jwt_identity()
+        user = User.query.filter_by(username=current_username).first()
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        return jsonify({'user': user.to_dict()}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@auth_bp.route('/me', methods=['PUT'])
+@jwt_required()
+def update_profile():
+    """
+    Update current user's non-critical profile information
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            first_name:
+              type: string
+              example: "John"
+            last_name:
+              type: string
+              example: "Doe"
+            student_id:
+              type: string
+              example: "STU2024001"
+    responses:
+      200:
+        description: Profile updated successfully
+        schema:
+          type: object
+          properties:
+            message: { type: string, example: "Profile updated successfully" }
+            user: { type: object }
+      400:
+        description: Bad request (attempt to modify protected fields or missing data)
+      401:
+        description: Missing or invalid JWT access token
+      404:
+        description: User not found
+    """
+    try:
+        current_username = get_jwt_identity()
+        user = User.query.filter_by(username=current_username).first()
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        protected_fields = ['username', 'role', 'password', 'id']
+        for field in protected_fields:
+            if field in data:
+                return jsonify({'error': f'Field "{field}" cannot be modified'}), 400
+
+        if 'first_name' in data:
+            user.first_name = data['first_name']
+        if 'last_name' in data:
+            user.last_name = data['last_name']
+        if 'student_id' in data:
+            if user.role != 'student':
+                return jsonify({'error': 'Only students can set a student ID'}), 400
+            existing = User.query.filter(User.student_id == data['student_id'], User.id != user.id).first()
+            if existing:
+                return jsonify({'error': 'Student ID already exists'}), 400
+            user.student_id = data['student_id']
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Profile updated successfully',
+            'user': user.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @auth_bp.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():

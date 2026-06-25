@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
 from app.routes.auth import role_required
-from app.models import db, Lesson, Section, SectionProgress
+from app.models import db, User, Lesson, Section, SectionProgress, Exam, ExamSubmission
 
 progress_bp = Blueprint('progress', __name__)
 
@@ -180,4 +180,171 @@ def mark_progress():
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@progress_bp.route('/students', methods=['GET'])
+@role_required(['professor', 'admin'])
+def get_students_progress():
+    """
+    Get all students' progress and exam scores (Professor/Admin only)
+    ---
+    tags:
+      - Progress
+    security:
+      - Bearer: []
+    parameters:
+      - name: student_id
+        in: query
+        type: integer
+        required: false
+        description: Filter by specific student ID
+    responses:
+      200:
+        description: List of students with their lesson progress and exam scores
+        schema:
+          type: object
+          properties:
+            students:
+              type: array
+              items:
+                type: object
+                properties:
+                  student:
+                    type: object
+                    properties:
+                      id: { type: integer, example: 3 }
+                      first_name: { type: string, example: "Jane" }
+                      last_name: { type: string, example: "Doe" }
+                      student_id: { type: string, example: "STU2024001" }
+                  lessons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        lesson_id: { type: integer, example: 1 }
+                        lesson_title: { type: string, example: "مقدمه‌ای بر برنامه‌نویسی پایتون" }
+                        total_sections: { type: integer, example: 2 }
+                        completed_sections: { type: integer, example: 1 }
+                        progress_percentage: { type: number, example: 50.0 }
+                        exams:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              exam_id: { type: integer, example: 1 }
+                              exam_title: { type: string, example: "کوئیز جامع پایتون مقدماتی" }
+                              score: { type: number, example: 85.0 }
+                              submitted_at: { type: string, example: "2024-01-15T10:30:00" }
+      403:
+        description: Insufficient permissions (requires professor or admin role)
+    """
+    try:
+        claims = get_jwt()
+        current_user_id = claims.get('user_id')
+        current_role = claims.get('role')
+
+        if current_role == 'admin':
+            lessons = Lesson.query.all()
+        else:
+            lessons = Lesson.query.filter_by(professor_id=current_user_id).all()
+
+        if not lessons:
+            return jsonify({'students': []}), 200
+
+        lesson_ids = [l.id for l in lessons]
+
+        sections = Section.query.filter(Section.lesson_id.in_(lesson_ids)).all()
+        section_ids = [s.id for s in sections]
+
+        exams = Exam.query.filter(Exam.lesson_id.in_(lesson_ids)).all()
+        exam_ids = [e.id for e in exams]
+
+        progress_records = SectionProgress.query.filter(
+            SectionProgress.section_id.in_(section_ids)
+        ).all() if section_ids else []
+
+        submissions = ExamSubmission.query.filter(
+            ExamSubmission.exam_id.in_(exam_ids)
+        ).all() if exam_ids else []
+
+        student_ids = set()
+        for p in progress_records:
+            student_ids.add(p.student_id)
+        for s in submissions:
+            student_ids.add(s.student_id)
+
+        if not student_ids:
+            return jsonify({'students': []}), 200
+
+        filter_student_id = request.args.get('student_id', type=int)
+        if filter_student_id:
+            if filter_student_id not in student_ids:
+                return jsonify({'students': []}), 200
+            student_ids = {filter_student_id}
+
+        students = User.query.filter(User.id.in_(student_ids), User.role == 'student').all()
+
+        progress_by_student = {}
+        for p in progress_records:
+            progress_by_student.setdefault(p.student_id, []).append(p)
+
+        submissions_by_student = {}
+        for s in submissions:
+            submissions_by_student.setdefault(s.student_id, []).append(s)
+
+        result = []
+        for student in students:
+            student_progress = progress_by_student.get(student.id, [])
+            student_submissions = submissions_by_student.get(student.id, [])
+
+            completed_section_ids = {p.section_id for p in student_progress}
+
+            lesson_data = []
+            for lesson in lessons:
+                sorted_sections = sorted(lesson.sections, key=lambda s: s.order_index)
+                total = len(sorted_sections)
+                completed = [s.id for s in sorted_sections if s.id in completed_section_ids]
+                completed_count = len(completed)
+
+                percentage = 0.0
+                if total > 0:
+                    percentage = round((completed_count / total) * 100, 2)
+
+                lesson_exams = [e for e in exams if e.lesson_id == lesson.id]
+                exam_scores = []
+                for exam in lesson_exams:
+                    for sub in student_submissions:
+                        if sub.exam_id == exam.id:
+                            exam_scores.append({
+                                'exam_id': exam.id,
+                                'exam_title': exam.title,
+                                'score': sub.score,
+                                'submitted_at': sub.submitted_at.isoformat() if sub.submitted_at else None
+                            })
+
+                lesson_data.append({
+                    'lesson_id': lesson.id,
+                    'lesson_title': lesson.title,
+                    'total_sections': total,
+                    'completed_sections': completed_count,
+                    'progress_percentage': percentage,
+                    'exams': exam_scores
+                })
+
+            student_info = {
+                'id': student.id,
+                'first_name': student.first_name,
+                'last_name': student.last_name,
+                'student_id': student.student_id
+            }
+
+            result.append({
+                'student': student_info,
+                'lessons': lesson_data
+            })
+
+        return jsonify({'students': result}), 200
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
